@@ -2432,7 +2432,7 @@ void writeStructConstructor( std::ofstream & ofs, std::string const& name, Struc
       << "    }" << std::endl
       << std::endl;
 
-  // the assignment operator from a native sturct (Vk...)
+  // the assignment operator from a native struct (Vk...)
   ofs << "    " << name << "& operator=( Vk" << name << " const & rhs )" << std::endl
     << "    {" << std::endl
     << "      memcpy( this, &rhs, sizeof(" << name << ") );" << std::endl
