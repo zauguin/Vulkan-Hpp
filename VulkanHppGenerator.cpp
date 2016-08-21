@@ -1370,6 +1370,11 @@ void readTypeStructMember( tinyxml2::XMLElement * element, std::vector<MemberDat
   members.push_back( MemberData() );
   MemberData & member = members.back();
 
+  if(element->Attribute("len"))
+  {
+    member.len = element->Attribute("len");
+  }
+
   tinyxml2::XMLNode * child = element->FirstChild();
   assert( child );
   if ( child->ToText())
@@ -2434,6 +2439,24 @@ void writeStructSetter( std::ofstream & ofs, std::string const& name, MemberData
       << "    }" << std::endl
       << std::endl;
 }
+void writeStructVectorSetter( std::ofstream & ofs, std::string const& name, MemberData const& memberData, std::set<std::string> const& vkTypes )
+{
+  bool templ = memberData.type == "const void*";
+  if(templ) {
+    ofs << "    template<class T>\n";
+  }
+  ofs << "    " << name << "& set" << static_cast<char>(toupper(memberData.name[1])) << memberData.name.substr(2) << "( ";
+  auto pos = memberData.type.find_last_of('*');
+  assert(pos != std::string::npos);
+  ofs << "ArrayProxy<" << (templ ? "T" : memberData.type.substr(0, pos)) << "> "
+      << memberData.name << "_ )" << std::endl
+      << "    {" << std::endl
+      << "      " << memberData.name << " = " << memberData.name << "_.data();" << std::endl
+      << "      " << memberData.len.substr(0, memberData.len.find_first_of(',')) << " = " << (templ ? "sizeof(T) * " : "") << memberData.name << "_.size();" << std::endl
+      << "      return *this;" << std::endl
+      << "    }" << std::endl
+      << std::endl;
+}
 
 void writeTypeCommand(std::ofstream & ofs, VkData const& vkData, DependencyData const& dependencyData)
 {
@@ -2795,6 +2818,9 @@ void writeTypeStruct( std::ofstream & ofs, VkData const& vkData, DependencyData 
     for (size_t i = 0; i<it->second.members.size(); i++)
     {
       writeStructSetter( ofs, dependencyData.name, it->second.members[i], vkData.vkTypes );
+      if ( !it->second.members[i].len.empty()
+           && it->second.members.end() != std::find_if(it->second.members.begin(), it->second.members.end(), [&] (const MemberData &member) {return member.name == it->second.members[i].len.substr(0, it->second.members[i].len.find_first_of(','));}))
+        writeStructVectorSetter( ofs, dependencyData.name, it->second.members[i], vkData.vkTypes );
     }
   }
 
