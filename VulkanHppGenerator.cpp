@@ -2630,6 +2630,41 @@ void writeEnumsToString(std::ofstream & ofs, VkData const& vkData)
   }
 }
 
+void writeEnumerators(std::ofstream & ofs, VkData const& vkData)
+{
+  std::map<std::string, std::vector<std::pair<std::string, std::string>>> enumerators;
+  for (auto &&it : vkData.dependencies)
+  {
+    switch (it.category)
+    {
+    case DependencyData::Category::ENUM:
+      assert(vkData.enums.find(it.name) != vkData.enums.end());
+      for(auto &&flag : vkData.enums.find(it.name)->second.members)
+      {
+        enumerators[flag.name].emplace_back(it.name, it.name);
+      }
+      break;
+    case DependencyData::Category::FLAGS:
+      for(auto &&flag : vkData.enums.find(*it.dependencies.begin())->second.members)
+      {
+        enumerators[flag.name].emplace_back(*it.dependencies.begin(), it.name);
+      }
+      break;
+    }
+  }
+  ofs << "  inline namespace e\n  {\n";
+  for(auto &&enumerator : enumerators)
+  {
+    ofs << "    struct\n    {\n";
+    for(auto &&type : enumerator.second)
+    {
+      ofs << "      constexpr operator " << type.second << "() const\n      {\n        return " << type.first << "::" << enumerator.first << ";\n      }\n";
+    }
+    ofs << "    } " << enumerator.first << ";\n";
+  }
+  ofs << "  }\n";
+}
+
 void writeTypeFlags( std::ofstream & ofs, DependencyData const& dependencyData, FlagData const& flagData )
 {
   assert( dependencyData.dependencies.size() == 1 );
@@ -3150,6 +3185,7 @@ int main( int argc, char **argv )
 
     writeTypes(ofs, vkData, defaultValues);
     writeEnumsToString(ofs, vkData);
+    writeEnumerators(ofs, vkData);
 
     ofs << "} // namespace vk" << std::endl
       << std::endl
